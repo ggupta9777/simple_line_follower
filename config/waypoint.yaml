@@ -1,0 +1,7 @@
+/line_follower:
+  ros__parameters:
+    waypoints: [0.00, 0.00, 0.00, 5.00, 5.00, 0.00]
+
+/naive_line_follower:
+  ros__parameters:
+    waypoints: [0.00, 0.00, 0.00, 5.00, 5.00, 0.00]

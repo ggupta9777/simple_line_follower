@@ -1,82 +1,112 @@
-#include "rclcpp/rclcpp.hpp"
-#include "geometry_msgs/msg/twist.hpp"
-#include "tf2_ros/transform_listener.h"
-#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
-#include "nav_msgs/msg/odometry.hpp"
-#include "yaml-cpp/yaml.h"
+#include "simple_line_follower/naive_line_follower.hpp"
 
-class NaiveLineFollower : public rclcpp::Node {
-public:
-  NaiveLineFollower() : Node("naive_line_follower") {
-    // Initialize publishers and subscribers
-    cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
-    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
-    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+NaiveLineFollower::NaiveLineFollower()
+: Node("naive_line_follower"), tf_buffer_(get_clock()), tf_listener_(tf_buffer_)
+{
+  // Initialize publisher
+  cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("bcr_bot/cmd_vel", 10);
 
-    // Load waypoints from the config file
-    load_waypoints();
+  // Declare ROS 2 Param to get waypoints
+  this->declare_parameter("waypoints", rclcpp::PARAMETER_DOUBLE_ARRAY) ;
 
-    // Initialize the control loop timer
-    control_loop_timer_ = this->create_wall_timer(
-      std::chrono::milliseconds(100),
-      std::bind(&NaiveLineFollower::goToGoal, this));
-  }
+  loadWaypoints();
 
-private:
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
-  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
-  rclcpp::TimerBase::SharedPtr control_loop_timer_;
-  geometry_msgs::msg::Point waypoint_1_;
-  geometry_msgs::msg::Point waypoint_2_;
-  geometry_msgs::msg::Twist cmd_vel_;
+  // Create a timer to call goToGoal
+  control_loop_timer_ = this->create_wall_timer(
+    std::chrono::milliseconds(100),
+    std::bind(&NaiveLineFollower::goToGoal, this));
+}
 
-  void load_waypoints() {
-    // This function should load waypoints from a YAML file.
-    // For simplicity, we are hardcoding the waypoints here.
-    waypoint_1_.x = 1.0;
-    waypoint_1_.y = 0.0;
-    waypoint_1_.z = 0.0;
-    waypoint_2_.x = 5.0;
-    waypoint_2_.y = 0.0;
-    waypoint_2_.z = 0.0;
-  }
+// Function to Load the ROS 2 Param to get waypoints
+void NaiveLineFollower::loadWaypoints() {
+  try
+  {
+    auto waypoints_param = this->get_parameter("waypoints") ;
+  
+    // Converting waypoints_param to a vector<double>
+    waypoints = waypoints_param.as_double_array();
+    waypoint_1_.x = waypoints[0]; waypoint_1_.y = waypoints[1]; waypoint_1_.z = waypoints[2];
+    waypoint_2_.x = waypoints[3]; waypoint_2_.y = waypoints[4]; waypoint_2_.z = waypoints[5];
+    waypoint_angle = std::atan2(waypoint_2_.y  - waypoint_1_.y , waypoint_2_.x  - waypoint_1_.x );
 
-  void goToGoal() {
-    // This function gets called at a fixed time interval to update the robot's movement.
-    // For this example, we apply a simple proportional control based on the robot's current position
-    // and the line formed by the waypoints.
-    geometry_msgs::msg::TransformStamped transformStamped;
+    RCLCPP_INFO(this->get_logger(), "Waypoints set successfully");
 
-    try {
-      transformStamped = tf_buffer_.lookupTransform("base_link", "odom", tf2::TimePointZero, std::chrono::milliseconds(100));
+  }catch (const std::exception& e){        
+    RCLCPP_INFO(this->get_logger(), "Exception caught: %s", e.what());
+  }    
+}
+
+void NaiveLineFollower::goToGoal() {
+
+  geometry_msgs::msg::TransformStamped transformStamped;
+  
+  try {
+    // Lookup transform to get the bot's position
+    transformStamped = tf_buffer_.lookupTransform("empty_world", "bcr_bot", tf2::TimePointZero, std::chrono::milliseconds(100));
+
+    if(!yaw_fixed){
+
+      // Convert Quaternion to Euler
+      tf2::Quaternion q(transformStamped.transform.rotation.x, transformStamped.transform.rotation.y, transformStamped.transform.rotation.z, transformStamped.transform.rotation.w);
+      tf2::Matrix3x3 m(q);
+      m.getRPY(bot_roll, bot_pitch, bot_yaw);
+
+      // Convert the bot yaw angle from range[-pi, pi] to [0, 2*pi]
+      if (bot_yaw<=0){
+          bot_yaw = 2*M_PI + bot_yaw ;
+      }
+      
+      // Angular error between bot's yaw and angle formed by the line
+      yaw_error = waypoint_angle-bot_yaw;
+      
+      // Apply proportional control
+      double k_p = 0.5; 
+      
+      // Calculate the yaw effort from the yaw error
+      yaw_effort = k_p * yaw_error;
+      
+      // Create and publish the Twist message
+      geometry_msgs::msg::Twist cmd_vel;
+      cmd_vel.linear.x = 0;
+      cmd_vel.angular.z = yaw_effort;
+      cmd_vel_pub_->publish(cmd_vel);
+      if (std::abs(yaw_error) < 0.05){
+        yaw_fixed = true;
+      }
+      RCLCPP_INFO(this->get_logger(), "Fixing Yaw");        
+    }      
+    else{
+      // Calculate error while following the line
       double goal_x = waypoint_2_.x - waypoint_1_.x;
       double goal_y = waypoint_2_.y - waypoint_1_.y;
       
-      // Calculate the error term (distance to the line)
-      double error = (goal_y * transformStamped.transform.translation.x -
-                      goal_x * transformStamped.transform.translation.y +
-                      waypoint_2_.x * waypoint_1_.y -
-                      waypoint_2_.y * waypoint_1_.x) /
-                     std::sqrt(std::pow(goal_y, 2) + std::pow(goal_x, 2));
-      
+      // Distance between a point and a line
+      distance_error = (goal_y * transformStamped.transform.translation.x -
+        goal_x * transformStamped.transform.translation.y +
+        waypoint_2_.x * waypoint_1_.y -
+        waypoint_2_.y * waypoint_1_.x) /
+        std::sqrt(std::pow(goal_y, 2) + std::pow(goal_x, 2));
+
       // Apply proportional control
-      double k_p = 1.0; // Proportional gain
-      double control_effort = k_p * error;
+      double k_p = 0.1;
 
-      // Populate cmd_vel
-      cmd_vel_.linear.x = 0.5; // constant forward velocity
-      cmd_vel_.angular.z = -control_effort; // turning rate
-
-      // Publish cmd_vel
+      // Calculate the distance effort from the distance error
+      distance_effort = k_p * distance_error;
+      
+      // Create and publish the Twist message
+      geometry_msgs::msg::Twist cmd_vel;
+      cmd_vel_.linear.x = 1.0; // constant forward velocity
+      cmd_vel_.angular.z = distance_effort; // turning rate
       cmd_vel_pub_->publish(cmd_vel_);
-    } catch (const tf2::TransformException &ex) {
-      RCLCPP_ERROR(this->get_logger(), "Could not transform %s to %s: %s",
-                   "base_link", "odom", ex.what());
+      
+      RCLCPP_INFO(this->get_logger(), "Following Line");
     }
+    
+  }catch (const tf2::TransformException &ex) {
+  RCLCPP_ERROR(this->get_logger(), "Could not transform %s to %s: %s", "empty_world", "bcr_bot", ex.what());
   }
-};
-
+}
+  
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
   auto node = std::make_shared<NaiveLineFollower>();

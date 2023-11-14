@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+
+# ROS
+build/
+devel/
+logs/
+install/
+build_isolated/
+devel_isolated/
+*.bag
+CATKIN_IGNORE
+
+# Misc
+.vscode/
+*.swp
+
+/workspace/code_cov_reports/*
+# Unity
+# Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore

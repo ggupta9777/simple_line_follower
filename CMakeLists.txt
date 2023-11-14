@@ -22,8 +22,38 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 
+include_directories(include)
+
+set(dependencies
+  rclcpp
+  geometry_msgs
+  tf2_ros
+  tf2_geometry_msgs
+  nav_msgs
+)
+
+# Create a library for line_follower_node
+add_library(line_follower_library SHARED
+  src/line_follower.cpp
+)
+ament_target_dependencies(line_follower_library 
+  ${dependencies}
+)
+
+add_library(naive_line_follower_library SHARED
+  src/naive_line_follower.cpp
+)
+ament_target_dependencies(naive_line_follower_library 
+  ${dependencies}
+)
+
 add_executable(naive_line_follower_node src/naive_line_follower.cpp)
+target_link_libraries(naive_line_follower_node naive_line_follower_library)
+
 add_executable(line_follower_node src/line_follower.cpp)
+target_link_libraries(line_follower_node line_follower_library)
+
+add_executable(tf_broadcaster src/tf_broadcaster.cpp)
 
 ament_target_dependencies(naive_line_follower_node
   rclcpp
@@ -41,46 +71,50 @@ ament_target_dependencies(line_follower_node
   nav_msgs
 )
 
+ament_target_dependencies(tf_broadcaster
+  rclcpp
+  geometry_msgs
+  tf2_ros
+  tf2_geometry_msgs
+  nav_msgs
+)
+
+target_link_libraries(line_follower_node ${rclcpp_LIBRARIES})
+
+target_include_directories(line_follower_library PRIVATE
+  ${rclcpp_INCLUDE_DIRS}
+  ${geometry_msgs_INCLUDE_DIRS}
+  ${tf2_ros_INCLUDE_DIRS}
+  ${tf2_geometry_msgs_INCLUDE_DIRS}
+  ${nav_msgs_INCLUDE_DIRS}
+)
 
 install(TARGETS
   naive_line_follower_node
   line_follower_node
+  tf_broadcaster
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# If you have other directories to install (like launch or config), add them here
 install(DIRECTORY
   config
   DESTINATION share/${PROJECT_NAME}/
 )
 
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
+  find_package(ament_cmake_gtest REQUIRED)
+  find_package(rclcpp REQUIRED)
+
   ament_lint_auto_find_test_dependencies()
 
-  # Include Google Test in CMake's testing framework
-  find_package(ament_cmake_gtest REQUIRED)
-  
-  # Add a test executable
-  ament_add_gtest(test_line_follower test/test_line_follower.cpp)
-
-  # Link your test executable with the library you want to test
-  target_link_libraries(test_line_follower
-    line_follower_node        # If you are testing the executable directly
-  )
-
-  # Include directories for the test targets
-  target_include_directories(test_line_follower PUBLIC
-    ${geometry_msgs_INCLUDE_DIRS}
-    ${tf2_ros_INCLUDE_DIRS}
-    ${tf2_geometry_msgs_INCLUDE_DIRS}
-    ${nav_msgs_INCLUDE_DIRS}
-    # any other include dirs you need
-  )
+  add_subdirectory(test)  
 endif()
 
 ament_package()
