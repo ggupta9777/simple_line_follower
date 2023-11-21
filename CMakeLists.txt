@@ -53,8 +53,6 @@ target_link_libraries(naive_line_follower_node naive_line_follower_library)
 add_executable(line_follower_node src/line_follower.cpp)
 target_link_libraries(line_follower_node line_follower_library)
 
-add_executable(tf_broadcaster src/tf_broadcaster.cpp)
-
 ament_target_dependencies(naive_line_follower_node
   rclcpp
   geometry_msgs
@@ -64,14 +62,6 @@ ament_target_dependencies(naive_line_follower_node
 )
 
 ament_target_dependencies(line_follower_node
-  rclcpp
-  geometry_msgs
-  tf2_ros
-  tf2_geometry_msgs
-  nav_msgs
-)
-
-ament_target_dependencies(tf_broadcaster
   rclcpp
   geometry_msgs
   tf2_ros
@@ -92,7 +82,6 @@ target_include_directories(line_follower_library PRIVATE
 install(TARGETS
   naive_line_follower_node
   line_follower_node
-  tf_broadcaster
   DESTINATION lib/${PROJECT_NAME}
 )
 
