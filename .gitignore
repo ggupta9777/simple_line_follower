@@ -16,6 +16,5 @@ CATKIN_IGNORE
 .vscode/
 *.swp
 
-/workspace/code_cov_reports/*
 # Unity
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore

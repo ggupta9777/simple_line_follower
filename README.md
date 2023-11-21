@@ -2,14 +2,15 @@
 
 ## About
 
-This repository demonstrates a basic line-following PID-controlled robot. 
+This repository demonstrates a basic line-following proportionally-controlled robot. 
 
 This ROS 2 package is used to demonstrate these examples :
 
 - Code which is tough to test (Ex : [naive_line_follower.cpp](src/naive_line_follower.cpp))
 - Code which is easy to test (Ex : [line_follower.cpp](src/line_follower.cpp))
-- Basic unit-tests taking the line follower as an example(Ex : [test_line_follower_good.cpp](test/test_line_follower_good.cpp) and [test_line_follower_poor.cpp](test/test_line_follower_poor.cpp))
-- Good unit tests taking the line follower as an example(Ex : [test_line_follower.cpp](test/test_line_follower.cpp))
+- Basic unit-tests taking the line follower as an example (Ex : [test_line_follower_basic.cpp](test/test_line_follower_basic.cpp))
+- Basic unit-tests taking the naive line follower as an example (Ex : [test_naive_line_follower.cpp](test/test_naive_line_follower.cpp))
+- Good unit tests taking the line follower as an example (Ex : [test_line_follower_good.cpp](test/test_line_follower_good.cpp))
 
 
 ## Dependencies
@@ -17,6 +18,7 @@ This ROS 2 package is used to demonstrate these examples :
 - Ubuntu 22.04
 - ROS 2 Humble
 - Ignition Gazebo(Fortress)
+- [bcr_bot](https://github.com/blackcoffeerobotics/bcr_bot)
 
 ## Installation
 
@@ -24,6 +26,12 @@ This ROS 2 package is used to demonstrate these examples :
 
     ```bash
     git clone git@github.com:ggupta9777/simple_line_follower.git
+    ```
+
+2. Clone bcr_bot
+
+    ```bash
+    git clone git@github.com:blackcoffeerobotics/bcr_bot.git
     ```
 
 2. Install dependencies using `rosdep`:
@@ -43,26 +51,20 @@ This ROS 2 package is used to demonstrate these examples :
 1. Launch [bcr_bot](https://github.com/blackcoffeerobotics/bcr_bot/tree/ros2)
 
     ```bash
-    ros2 launch bcr_bot gz.launch.py
-    ```
+    ros2 launch bcr_bot gz.launch.py world_file:=empty.sdf
+    ``````
 
-2. Run the [tf_broadcaster](src/tf_broadcaster.cpp) node
-
-    ```bash
-    ros2 run simple_line_follower tf_broadcaster
-    ```
-
-3. Run the line follower node
+2. Run the line follower node
 
     - Run the [line_follower_node](src/line_follower.cpp)
 
         ```bash
-        ros2 run simple_line_follower line_follower_node --ros-args --params-file src/simple_line_follower/config/waypoint.yaml
+        ros2 run simple_line_follower line_follower_node --ros-args --params-file src/simple_line_follower/config/params.yaml
         ```
     - Run the [naive_line_follower_node](src/naive_line_follower.cpp)
 
         ```bash
-        ros2 run simple_line_follower naive_line_follower_node --ros-args --params-file src/simple_line_follower/config/waypoint.yaml
+        ros2 run simple_line_follower naive_line_follower_node --ros-args --params-file src/simple_line_follower/config/params.yaml
         ```
 
 ## Running Tests
@@ -86,7 +88,7 @@ This ROS 2 package is used to demonstrate these examples :
     genhtml code_coverage_report.info --output-directory html_code_coverage_report
     ```
 
-3. Open the code coverage on your browser(this will only work nativelly)
+3. Open the code coverage on your browser
     
     ```bash
     sensible-browser html_code_coverage_report/index.html
@@ -98,6 +100,6 @@ This ROS 2 package is used to demonstrate these examples :
 
 ## Demo
 
-This is a demo of the bot following a line defined by the waypoints : `(0, 0, 0)` and `(5, 5, 0)`
+This is a demo of the bot following a line defined by the waypoints : `(0, 0, 0)` and `(5, 0, 0)`
 
 <img src="res/line_follower.gif" height=500>

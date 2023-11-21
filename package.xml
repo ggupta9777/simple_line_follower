@@ -3,7 +3,7 @@
 <package format="3">
   <name>simple_line_follower</name>
   <version>0.0.0</version>
-  <description>A simple PID control for line following</description>
+  <description>A simple PID controlled line follower bot used to depict the examples of unit testable code, and good and bad unit tests</description>
   <maintainer email="gaurav@blackcoffeerobotics.com">gaurav</maintainer>
   <license>Apache 2.0</license>
 

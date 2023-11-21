@@ -1,6 +1,9 @@
 #ifndef NAIVE_LINE_FOLLOWER_HPP
 #define NAIVE_LINE_FOLLOWER_HPP
 
+#include <algorithm> 
+#include <cmath>
+
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "tf2_ros/transform_listener.h"
@@ -10,6 +13,7 @@
 class NaiveLineFollower : public rclcpp::Node {
     public :
         NaiveLineFollower();
+        void setControlGain();
         void loadWaypoints();
         void goToGoal();
 
@@ -20,12 +24,11 @@ class NaiveLineFollower : public rclcpp::Node {
         geometry_msgs::msg::Point waypoint_1_;
         geometry_msgs::msg::Point waypoint_2_;
         geometry_msgs::msg::Twist cmd_vel_;
+        double k_p, linear_vel;
         double bot_yaw, bot_pitch, bot_roll ;
-        bool yaw_fixed = false;
         double waypoint_angle;
         std::vector<double> waypoints ;
-        double yaw_error, distance_error;
-        double yaw_effort, distance_effort;
+        double distance_error, distance_effort;
 };
 
 #endif
