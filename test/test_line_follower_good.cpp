@@ -1,18 +1,12 @@
-#include <memory>
-#include <iomanip>
 #include <gtest/gtest.h>
 
 #include "simple_line_follower/line_follower.hpp" 
-
-#include <rclcpp/rclcpp.hpp>
-#include <geometry_msgs/msg/twist.hpp>
-#include <tf2_ros/buffer_interface.h>
 
 // Shim class to abstract out LineFollowerClass
 class LineFollowerShim : public LineFollower
 { 
   public: 
-    LineFollowerShim() : LineFollower(){}    
+    LineFollowerShim() : LineFollower() {}    
     void loadWaypoints()
     {
       LineFollower::loadWaypoints();
@@ -21,13 +15,22 @@ class LineFollowerShim : public LineFollower
     {
       LineFollower::setControlGain();
     }
-    double calculateDistanceError(const geometry_msgs::msg::TransformStamped& transform)
+    double calculateDistanceError()
     {
-      return LineFollower::calculateDistanceError(transform);
+      return LineFollower::calculateDistanceError();
     }
-    double calculateDistanceEffort(double error)
+    double calculateProportionalEffort(double error)
     {
-      return LineFollower::calculateDistanceEffort(error);
+      return LineFollower::calculateProportionalEffort(error);
+    }
+    double calculateDerivativeEffort(double error)
+    {
+      return LineFollower::calculateDerivativeEffort(error);
+    }
+    void updateBotPosition(double new_bot_x, double new_bot_y)
+    {
+      bot_x = new_bot_x;
+      bot_y = new_bot_y;
     }      
 };
 
@@ -38,36 +41,19 @@ class TestLineFollowerGood : public ::testing::Test
     {
       rclcpp::init(0, nullptr);
       shim_ = std::make_shared<LineFollowerShim>();
-
-      transform_.header.frame_id = "base_link";
-      transform_.child_frame_id = "odom";
-      transform_.transform.translation.x = 0.0;
-      transform_.transform.translation.y = 0.0;
-      transform_.transform.translation.z = 0.0;
-
-      tf_message_.transforms.push_back(transform_);
     }
     void TearDown() override
     {
       rclcpp::shutdown();
     }
     std::shared_ptr<LineFollowerShim> shim_;
-    rclcpp::Publisher<tf2_msgs::msg::TFMessage>::SharedPtr publisher_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr subscriber_;
-    geometry_msgs::msg::TransformStamped transform_;
-    tf2_msgs::msg::TFMessage tf_message_;
 };
 
 
-// Testing the calculateDistanceError function where the line is parallel to the X-axis, parallel to the Y-axis and a generic slanted line
+// Testing the calculateDistanceError function
 TEST_F(TestLineFollowerGood, TestCalculateDistanceError)
 { 
-  // Define test ROS 2 Node
-  auto test_calculate_distance_error_node = std::make_shared<rclcpp::Node>("test_calculate_distance_error_node");
-
-  // Publisher to /tf
-  publisher_ = test_calculate_distance_error_node->create_publisher<tf2_msgs::msg::TFMessage>("tf", 1);
-
   // Define list of waypoints
   std::vector<std::vector<double>> test_waypoints_list = {
     {0.00, 5.00, 0.00, 5.00, 5.00, 0.00},
@@ -75,12 +61,7 @@ TEST_F(TestLineFollowerGood, TestCalculateDistanceError)
     {0.00, -5.00, 0.00, 5.00, -5.00, 0.00},
   };
 
-  std::vector<double> expected_outcomes = {5.0, 3.5, -5.0};
-
-  // Define executor object and add nodes
-  rclcpp::executors::MultiThreadedExecutor executor;
-  executor.add_node(shim_);
-  executor.add_node(test_calculate_distance_error_node);
+  std::vector<double> expected_outcomes = {8.0, 2.1, -2.0};
 
   for (int i = 0; i < 3; ++i)
   {
@@ -91,10 +72,10 @@ TEST_F(TestLineFollowerGood, TestCalculateDistanceError)
     shim_->set_parameter(parameter);
     shim_->loadWaypoints();
     
-    // Publish transform message to /tf topic
-    publisher_->publish(tf_message_);    
+    // Set position of bot
+    shim_->updateBotPosition(5.0, -3.0);   
 
-    double error = shim_->calculateDistanceError(transform_);
+    double error = shim_->calculateDistanceError();
 
     // Round off to 1 decimal place
     error = std::round(error * 10.0) / 10.0;
@@ -103,19 +84,34 @@ TEST_F(TestLineFollowerGood, TestCalculateDistanceError)
   }  
 }
 
-// Test for calculateDistanceEffort function
-TEST_F(TestLineFollowerGood, TestCalculateDistanceEffort)
+// Test for calculateProportionalEffort function
+TEST_F(TestLineFollowerGood, TestCalculateProportionalEffort)
 { 
   double test_k_p = 1.5;
-  auto parameter = rclcpp::Parameter("k_p", test_k_p);
+  auto parameter_k_p = rclcpp::Parameter("k_p", test_k_p);
 
   // Set and load ROS 2 Params
-  shim_->set_parameter(parameter);
+  shim_->set_parameter(parameter_k_p);
+  shim_->setControlGain();
+
+  // Calculate proportional effort   
+  auto prop_effort = shim_->calculateProportionalEffort(1.5); 
+  ASSERT_EQ(prop_effort, 2.25);
+}
+
+// Test for calculateDerivativeEffort function
+TEST_F(TestLineFollowerGood, TestCalculateDerivativeEffort)
+{ 
+  double test_k_d = 0.6;
+  auto parameter_k_d = rclcpp::Parameter("k_d", test_k_d);
+
+  // Set and load ROS 2 Params
+  shim_->set_parameter(parameter_k_d);
   shim_->setControlGain();
 
   // Calculate distance effort   
-  auto distance_effort = shim_->calculateDistanceEffort(1.5); 
-  ASSERT_EQ(distance_effort, 2.25);
+  auto der_effort = shim_->calculateDerivativeEffort(2.0); 
+  ASSERT_EQ(der_effort, 1.20);
 }
 
 // Test for PublishVelocity function
@@ -164,11 +160,12 @@ TEST_F(TestLineFollowerGood, TestControlLoop)
   double test_k_p = 2.5;
   auto k_p_parameter = rclcpp::Parameter("k_p", test_k_p);
 
+  // Initialize derivative gain
+  double test_k_d = 2.0;
+  auto k_d_parameter = rclcpp::Parameter("k_d", test_k_d);
+
   // Define test ROS 2 Node
   auto test_control_loop_node = std::make_shared<rclcpp::Node>("test_control_loop_node");
-
-  // Define publisher to /tf topic
-  publisher_ = test_control_loop_node->create_publisher<tf2_msgs::msg::TFMessage>("tf", 1);
 
   // Define Twist object
   geometry_msgs::msg::Twist pub_vel_result;
@@ -190,12 +187,13 @@ TEST_F(TestLineFollowerGood, TestControlLoop)
 
   // Set and load ROS 2 Params
   shim_->set_parameter(k_p_parameter);
+  shim_->set_parameter(k_d_parameter);
   shim_->set_parameter(waypoint_parameter);
   shim_->loadWaypoints();
   shim_->setControlGain();
 
-  // Publish transform message to /tf topic
-  publisher_->publish(tf_message_);
+  // Set position of bot
+  shim_->updateBotPosition(0.0, 0.0);
   
   // Timer callback to stop spinning
   auto duration = std::chrono::milliseconds(50); 
@@ -205,7 +203,7 @@ TEST_F(TestLineFollowerGood, TestControlLoop)
   
   executor.spin();
 
-  ASSERT_EQ(pub_vel_result.angular.z , 2.5);
+  ASSERT_EQ(pub_vel_result.angular.z , 4.5);
 }
 
 int main(int argc, char **argv) 
