@@ -2,7 +2,7 @@
 
 ## About
 
-This repository demonstrates a basic line-following proportionally-controlled robot. 
+This repository demonstrates a basic line-following robot which uses a Proportional-Derivative Controller. 
 
 This ROS 2 package is used to demonstrate these examples :
 
@@ -51,8 +51,16 @@ This ROS 2 package is used to demonstrate these examples :
 1. Launch [bcr_bot](https://github.com/blackcoffeerobotics/bcr_bot/tree/ros2)
 
     ```bash
-    ros2 launch bcr_bot gz.launch.py world_file:=empty.sdf
-    ``````
+    ros2 launch bcr_bot gz.launch.py \
+	    camera_enabled:=True \
+	    stereo_camera_enabled:=False \
+	    two_d_lidar_enabled:=True \
+	    position_x:=0.0 \
+	    position_y:=0.0  \
+	    orientation_yaw:=0.0 \
+	    odometry_source:=world \
+	    world_file:=empty.sdf
+    ```
 
 2. Run the line follower node
 
@@ -97,9 +105,10 @@ This ROS 2 package is used to demonstrate these examples :
 ## Topics
 
 - `/bcr_bot/cmd_vel` : This topic is used to publish velocity messages to the bot in Gazebo
+- `/bcr_bot/odom` : This topic is used to obtain odometry information regarding the bot
 
 ## Demo
 
-This is a demo of the bot following a line defined by the waypoints : `(0, 0, 0)` and `(5, 0, 0)`
+This is a demo of the bot following a line defined by the waypoints : `(0, 1, 0)` and `(5, 1, 0)`
 
 <img src="res/line_follower.gif" height=500>
