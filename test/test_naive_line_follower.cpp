@@ -34,6 +34,39 @@ class TestNaiveLineFollower : public ::testing::Test
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr subscriber_;
 };
 
+// Test for odomCb function
+TEST_F(TestNaiveLineFollower, TestodomCb)
+{ 
+  // Define test ROS 2 Node
+  auto test_odom_cb_node = std::make_shared<rclcpp::Node>("test_odom_cb_node");
+
+  // Publisher to send odometry messages
+  auto odom_publisher = test_odom_cb_node->create_publisher<nav_msgs::msg::Odometry>("bcr_bot/odom", 1);
+
+  // Initializing odometry messages
+  nav_msgs::msg::Odometry odom_msg;
+  odom_msg.pose.pose.position.x = 0.67;
+  odom_msg.pose.pose.position.y = 0.31;
+
+  // Send odom_msg to bcr_bot/odom
+  odom_publisher->publish(odom_msg);
+
+  // Spin both test_odom_cb_node and naive_line_follower
+  rclcpp::executors::MultiThreadedExecutor executor;
+  executor.add_node(shim_->get_node_base_interface());
+  executor.add_node(test_odom_cb_node);
+
+  // Timer callback to stop spinning  
+  auto duration = std::chrono::milliseconds(200); 
+  auto timer = shim_->create_wall_timer(duration, [&executor]() {
+    executor.cancel();
+  });
+
+  executor.spin();
+
+  ASSERT_EQ(shim_->bot_x, 0.67);
+  ASSERT_EQ(shim_->bot_y, 0.31);
+}
 
 // Test for goToGoal function
 TEST_F(TestNaiveLineFollower, TestgoToGoal)
