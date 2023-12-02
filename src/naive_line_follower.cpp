@@ -42,8 +42,7 @@ void NaiveLineFollower::setControlGain()
 {
   try
   {
-    k_p = this->get_parameter("k_p").as_double();    
-    RCLCPP_INFO(this->get_logger(), "Proportional Gain set successfully : %f", k_p);    
+    k_p = this->get_parameter("k_p").as_double();       
   }
   catch (const std::exception& e)
   {
@@ -53,7 +52,6 @@ void NaiveLineFollower::setControlGain()
   try
   {
     k_d = this->get_parameter("k_d").as_double();
-    RCLCPP_INFO(this->get_logger(), "Derivative Gain set successfully : %f", k_d);
   }
   catch (const std::exception& e)
   {
