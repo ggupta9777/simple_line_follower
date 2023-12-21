@@ -48,6 +48,13 @@ target_include_directories(test_naive_line_follower PUBLIC
     ${nav_msgs_INCLUDE_DIRS}
 )
 
+ament_add_gtest_executable(test_integration
+  test_integration.cpp
+)
 
+ament_target_dependencies(test_integration
+  ${dependencies}
+)
 
-
+find_package(launch_testing_ament_cmake)
+add_launch_test(test_integration_launch.py)
