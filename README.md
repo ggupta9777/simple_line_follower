@@ -77,11 +77,21 @@ This ROS 2 package is used to demonstrate these examples :
 
 ## Running Tests
 
-- Run the test scripts(**Note** : The `--event-handler=console_direct+` argument is used to show the logs of the testing process)
+- Run the test scripts(**Note** : The `--event-handler=console_direct+` argument is used to show the logs of the testing process).
+This command will run both the `integration` and `unit test` scripts together.
 
     ```bash
-      colcon test --event-handler=console_direct+
+    colcon test --event-handler=console_direct+
     ```
+
+- You can also run the `integration tests` separately by using : 
+
+    ```bash
+    launch_test src/simple_line_follower/test/test_integration_launch.py node-name:="/line_follower"
+    ```
+    **Note** : The `node_name` argument is used to check for the presence of the specified node.
+    You can try with `/naive_line_follower` as well.
+    
 ### Generate Code Coverage
 
 1. Use [lcov](https://github.com/linux-test-project/lcov) to generate code coverage
@@ -112,3 +122,7 @@ This ROS 2 package is used to demonstrate these examples :
 This is a demo of the bot following a line defined by the waypoints : `(0, 1, 0)` and `(5, 1, 0)`
 
 <img src="res/line_follower.gif" height=500>
+
+## References
+
+- [launch_testing](https://github.com/ros2/launch/tree/rolling/launch_testing) package documentation
