@@ -21,7 +21,10 @@ class TestIntegrationTest : public::testing::Test
 
         void CmdCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
         {
-            cmd_msg_count += 1;
+            if(msg)
+            {
+                cmd_msg_count += 1;
+            }
         }
         
         std::shared_ptr<rclcpp::Node> test_node;
@@ -49,9 +52,12 @@ TEST_F(TestIntegrationTest, TestNodesActive)
     auto active_nodes = test_node->get_node_names();
     
     // Find if a particular node exists in this list
+    // std::find returns the iterator to the first occurence of the specified element
+    // If the element is not found, an iterator to the end is returned.
+    // Read more about this here : https://www.geeksforgeeks.org/std-find-in-cpp/
     bool is_active_node = std::find(active_nodes.begin(), active_nodes.end(), node_name) != active_nodes.end();
 
-    ASSERT_TRUE(is_active_node);
+    ASSERT_TRUE(is_active_node)<< "Node '" << node_name << "' not found in the list of active nodes";
 }
 
 // Test if a ROS 2 Topic is active or not
@@ -72,7 +78,8 @@ TEST_F(TestIntegrationTest, TestTopicsActive)
         return topic.first == "/bcr_bot/odom";
     }) != active_topics.end();
 
-    ASSERT_TRUE(is_active_cmd_vel && is_active_odom);
+    ASSERT_TRUE(is_active_cmd_vel) << "Topic '" << "/bcr_bot/cmd_vel" << "' not found in the list of active topics";
+    ASSERT_TRUE(is_active_odom) << "Topic '" << "/bcr_bot/odom" << "' not found in the list of active topics";
 }
 
 // Check the rates of topics
